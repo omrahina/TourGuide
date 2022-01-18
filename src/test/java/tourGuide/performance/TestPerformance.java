@@ -1,24 +1,26 @@
-package tourGuide;
-
-import static org.junit.Assert.assertTrue;
-
-import java.util.*;
-import java.util.concurrent.TimeUnit;
-
-import org.apache.commons.lang3.time.StopWatch;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
+package tourGuide.performance;
 
 import gpsUtil.GpsUtil;
 import gpsUtil.location.Attraction;
 import gpsUtil.location.VisitedLocation;
+import org.apache.commons.lang3.time.StopWatch;
+import org.junit.Before;
+import org.junit.Test;
 import rewardCentral.RewardCentral;
-import tourGuide.helper.InternalTestHelper;
+import tourGuide.data.InternalDataHelper;
+import tourGuide.service.InternalUserService;
 import tourGuide.service.RewardsService;
-import tourGuide.service.TourGuideService;
+import tourGuide.service.TrackerService;
 import tourGuide.user.User;
-import tourGuide.user.UserReward;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
+import static org.junit.Assert.assertTrue;
 
 public class TestPerformance {
 	
@@ -42,60 +44,61 @@ public class TestPerformance {
 	 *          assertTrue(TimeUnit.MINUTES.toSeconds(20) >= TimeUnit.MILLISECONDS.toSeconds(stopWatch.getTime()));
 	 */
 
+	private GpsUtil gpsUtil;
+	private RewardsService rewardsService;
+	private TrackerService trackerService;
+	private InternalUserService internalUserService;
+	private final ExecutorService trackerExecutorService = Executors.newFixedThreadPool(9);
+	private final ExecutorService rewardsExecutorService = Executors.newFixedThreadPool(45);
+
 	@Before
 	public void setUp(){
+		gpsUtil = new GpsUtil();
+		trackerService = new TrackerService(gpsUtil, trackerExecutorService);
+		rewardsService = new RewardsService(gpsUtil, new RewardCentral(), rewardsExecutorService);
+		internalUserService = new InternalUserService();
 		Locale.setDefault(new Locale("en", "US"));
 	}
-	
-//	@Ignore
+
 	@Test
 	public void highVolumeTrackLocation() {
-		GpsUtil gpsUtil = new GpsUtil();
-		RewardsService rewardsService = new RewardsService(gpsUtil, new RewardCentral());
-		// Users should be incremented up to 100,000, and test finishes within 15 minutes
-		InternalTestHelper.setInternalUserNumber(100);
-		TourGuideService tourGuideService = new TourGuideService(gpsUtil, rewardsService);
 
-		List<User> allUsers = new ArrayList<>();
-		allUsers = tourGuideService.getAllUsers();
-		
+		// Users should be incremented up to 100,000, and test finishes within 15 minutes
+		InternalDataHelper.setInternalUserNumber(100000);
+		InternalDataHelper.initializeInternalUsers();
+
+		List<User> allUsers = internalUserService.getAllUsers();
 	    StopWatch stopWatch = new StopWatch();
 		stopWatch.start();
 		for(User user : allUsers) {
-			tourGuideService.trackUserLocation(user);
+			trackerService.trackUserLocation(user);
 		}
+		trackerService.stopTracking();
 		stopWatch.stop();
-		tourGuideService.tracker.stopTracking();
 
 		System.out.println("highVolumeTrackLocation: Time Elapsed: " + TimeUnit.MILLISECONDS.toSeconds(stopWatch.getTime()) + " seconds."); 
 		assertTrue(TimeUnit.MINUTES.toSeconds(15) >= TimeUnit.MILLISECONDS.toSeconds(stopWatch.getTime()));
 	}
-	
-	@Ignore
+
 	@Test
 	public void highVolumeGetRewards() {
-		GpsUtil gpsUtil = new GpsUtil();
-		RewardsService rewardsService = new RewardsService(gpsUtil, new RewardCentral());
 
 		// Users should be incremented up to 100,000, and test finishes within 20 minutes
-		InternalTestHelper.setInternalUserNumber(100);
-		StopWatch stopWatch = new StopWatch();
-		stopWatch.start();
-		TourGuideService tourGuideService = new TourGuideService(gpsUtil, rewardsService);
+		InternalDataHelper.setInternalUserNumber(100000);
+		InternalDataHelper.initializeInternalUsers();
 		
 	    Attraction attraction = gpsUtil.getAttractions().get(0);
-		List<User> allUsers = new ArrayList<>();
-		allUsers = tourGuideService.getAllUsers();
+		List<User> allUsers = internalUserService.getAllUsers();
 		allUsers.forEach(u -> u.addToVisitedLocations(new VisitedLocation(u.getUserId(), attraction, new Date())));
-	     
+		StopWatch stopWatch = new StopWatch();
+		stopWatch.start();
 	    allUsers.forEach(u -> rewardsService.calculateRewards(u));
-	    
+	    rewardsService.stopRewarding();
+		stopWatch.stop();
+
 		for(User user : allUsers) {
 			assertTrue(user.getUserRewards().size() > 0);
 		}
-		stopWatch.stop();
-		tourGuideService.tracker.stopTracking();
-
 		System.out.println("highVolumeGetRewards: Time Elapsed: " + TimeUnit.MILLISECONDS.toSeconds(stopWatch.getTime()) + " seconds."); 
 		assertTrue(TimeUnit.MINUTES.toSeconds(20) >= TimeUnit.MILLISECONDS.toSeconds(stopWatch.getTime()));
 	}
