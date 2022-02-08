@@ -20,7 +20,9 @@ import tourGuide.exceptions.UserNotFoundException;
 import tourGuide.service.InternalUserService;
 import tourGuide.service.RewardsService;
 import tourGuide.service.TourGuideService;
+import tourGuide.service.TrackerService;
 import tourGuide.user.User;
+import tourGuide.user.UserReward;
 import tripPricer.Provider;
 
 @RestController
@@ -107,9 +109,17 @@ public class TourGuideController {
     }
     
     @RequestMapping("/getTripDeals")
-    public String getTripDeals(@RequestParam String userName) {
-    	List<Provider> providers = tourGuideService.getTripDeals(getUser(userName));
-    	return JsonStream.serialize(providers);
+    public ResponseEntity<List<Provider>> getTripDeals(@RequestParam String userName) {
+        try {
+            List<Provider> providers = tourGuideService.getTripDeals(getUser(userName));
+            return new ResponseEntity<>(providers, HttpStatus.OK);
+        } catch (UserNotFoundException e) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Please verify the username", e);
+        } catch (NoDealOrRewardException e) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND, e.getMessage(), e);
+        }
     }
     
     private User getUser(String userName) {
