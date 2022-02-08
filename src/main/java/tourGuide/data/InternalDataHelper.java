@@ -14,13 +14,12 @@ import java.util.stream.IntStream;
 public class InternalDataHelper {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(InternalDataHelper.class);
-
-	// Set this default up to 100,000 for testing
+	private static final Map<String, User> INTERNAL_USER_MAP = new HashMap<>();
 	private static int internalUserNumber = 100;
 
-	private static final Map<String, User> INTERNAL_USER_MAP = new HashMap<>();
-
-
+	static {
+		initializeInternalUsers();
+	}
 	public static Map<String, User> getInternalUserMap() {
 		return INTERNAL_USER_MAP;
 	}

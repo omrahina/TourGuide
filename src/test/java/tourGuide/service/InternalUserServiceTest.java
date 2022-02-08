@@ -8,14 +8,15 @@ import org.junit.runner.RunWith;
 import org.mockito.InjectMocks;
 import org.mockito.junit.MockitoJUnitRunner;
 import tourGuide.data.InternalDataHelper;
+import tourGuide.exceptions.UserNotFoundException;
 import tourGuide.user.User;
 
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.junit.Assert.*;
 
 @RunWith(MockitoJUnitRunner.class)
 public class InternalUserServiceTest {
@@ -64,7 +65,21 @@ public class InternalUserServiceTest {
     }
 
     @Test
-    public void getAllUsers() {
+    public void should_return_a_user() {
+        User user = internalUserService.findUserByUserName("internalUser0");
+
+        assertNotNull(user);
+    }
+
+    @Test
+    public void should_throw_UserNotFoundException() {
+        assertThatExceptionOfType(UserNotFoundException.class).isThrownBy(()
+                -> internalUserService.findUserByUserName("random"))
+                .withMessage("User not found");
+    }
+
+    @Test
+    public void getAllUsers_ok() {
         User user = new User(UUID.randomUUID(), "jon", "000", "jon@tourGuide.com");
         User user2 = new User(UUID.randomUUID(), "jon2", "000", "jon2@tourGuide.com");
 

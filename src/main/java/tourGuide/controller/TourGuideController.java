@@ -1,15 +1,24 @@
-package tourGuide;
+package tourGuide.controller;
 
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-
-import com.jsoniter.output.JsonStream;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
 import gpsUtil.location.VisitedLocation;
+import org.springframework.web.server.ResponseStatusException;
+import tourGuide.dto.LocationHistoryDto;
+import tourGuide.dto.NearbyAttractionDto;
+import tourGuide.exceptions.NoDealOrRewardException;
+import tourGuide.exceptions.UserLocationException;
+import tourGuide.exceptions.UserNotFoundException;
+import tourGuide.service.InternalUserService;
+import tourGuide.service.RewardsService;
 import tourGuide.service.TourGuideService;
 import tourGuide.user.User;
 import tripPricer.Provider;
@@ -18,8 +27,20 @@ import tripPricer.Provider;
 public class TourGuideController {
 
 	@Autowired
-	TourGuideService tourGuideService;
-	
+	private TourGuideService tourGuideService;
+
+	@Autowired
+    private TrackerService trackerService;
+
+	@Autowired
+    private RewardsService rewardsService;
+
+	@Autowired
+    private InternalUserService internalUserService;
+
+    private final Logger LOGGER = LoggerFactory.getLogger(TourGuideController.class);
+
+
     @RequestMapping("/")
     public String index() {
         return "Greetings from TourGuide!";
@@ -73,7 +94,7 @@ public class TourGuideController {
     }
     
     private User getUser(String userName) {
-    	return tourGuideService.getUser(userName);
+    	return internalUserService.findUserByUserName(userName);
     }
    
 

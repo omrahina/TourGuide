@@ -3,6 +3,7 @@ package tourGuide.service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import tourGuide.exceptions.UserNotFoundException;
 import tourGuide.data.InternalDataHelper;
 import tourGuide.user.User;
 
@@ -24,8 +25,14 @@ public class InternalUserService {
         }
     }
 
-    public User findUserByUserName(String userName) {
-        return InternalDataHelper.getInternalUserMap().get(userName);
+    public User findUserByUserName(String userName) throws UserNotFoundException{
+        User user = InternalDataHelper.getInternalUserMap().get(userName);
+        if (user != null) {
+            LOGGER.info("User found");
+            return user;
+        }
+        LOGGER.error("User not found");
+        throw new UserNotFoundException("User not found");
     }
 
     public List<User> getAllUsers() {
