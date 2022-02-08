@@ -76,6 +76,24 @@ public class RewardsService {
 		});
 	}
 
+	public NearbyAttractionDto getNearByAttractions(VisitedLocation visitedLocation) {
+		Location userLocation = visitedLocation.location;
+		List<Attraction> fiveNearestAttractions = gpsUtil.getAttractions().stream()
+				.sorted(Comparator.comparingDouble(attraction -> getDistance(attraction, userLocation)))
+				.limit(5)
+				.collect(Collectors.toList());
+		if (!fiveNearestAttractions.isEmpty()) {
+			List<AttractionDto> attractions = fiveNearestAttractions.stream()
+					.map(attraction -> new AttractionDto(attraction, getDistance(attraction, userLocation),
+							rewardsCentral.getAttractionRewardPoints(attraction.attractionId, visitedLocation.userId)))
+					.collect(Collectors.toList());
+			LOGGER.info(fiveNearestAttractions.size() +" nearest attraction(s) retrieved");
+			return new NearbyAttractionDto(userLocation, attractions);
+		}
+		LOGGER.error("Cannot return the nearest attractions");
+		return new NearbyAttractionDto(visitedLocation.location);
+	}
+
 	/**
 	 * Assures that no new task is submitted and awaits for executing tasks to terminate
 	 */
@@ -110,8 +128,7 @@ public class RewardsService {
                                + Math.cos(lat1) * Math.cos(lat2) * Math.cos(lon1 - lon2));
 
         double nauticalMiles = 60 * Math.toDegrees(angle);
-        double statuteMiles = STATUTE_MILES_PER_NAUTICAL_MILE * nauticalMiles;
-        return statuteMiles;
+		return STATUTE_MILES_PER_NAUTICAL_MILE * nauticalMiles;
 	}
 
 }
