@@ -78,8 +78,21 @@ public class TourGuideController {
     }
     
     @RequestMapping("/getRewards") 
-    public String getRewards(@RequestParam String userName) {
-    	return JsonStream.serialize(tourGuideService.getUserRewards(getUser(userName)));
+    public ResponseEntity<List<UserReward>> getRewards(@RequestParam String userName) {
+        try {
+            User user = getUser(userName);
+            List<UserReward> userRewards = rewardsService.getUserRewards(user);
+            return new ResponseEntity<>(userRewards, HttpStatus.OK);
+        } catch (UserNotFoundException e) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Please verify the username", e);
+        } catch (InterruptedException | ExecutionException e) {
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR, "An error occurred! Please retry", e);
+        } catch (NoDealOrRewardException e) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND, e.getMessage(), e);
+        }
     }
     
     @RequestMapping("/getAllCurrentLocations")

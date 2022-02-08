@@ -1,21 +1,27 @@
 package tourGuide.service;
 
-import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.stereotype.Service;
-
 import gpsUtil.GpsUtil;
 import gpsUtil.location.Attraction;
 import gpsUtil.location.Location;
 import gpsUtil.location.VisitedLocation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Service;
 import rewardCentral.RewardCentral;
+import tourGuide.dto.AttractionDto;
+import tourGuide.dto.NearbyAttractionDto;
+import tourGuide.exceptions.NoDealOrRewardException;
 import tourGuide.user.User;
 import tourGuide.user.UserReward;
+
+import java.util.Comparator;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Service
 public class RewardsService {
@@ -27,10 +33,9 @@ public class RewardsService {
 	private final ExecutorService rewardsExecutorService;
 
     private static final double STATUTE_MILES_PER_NAUTICAL_MILE = 1.15077945;
-
 	// proximity in miles
+    private final int ATTRACTION_PROXIMITY_RANGE = 200;
 	private int proximityBuffer;
-	private final int attractionProximityRange = 200;
 	
 	public RewardsService(GpsUtil gpsUtil, RewardCentral rewardCentral, @Qualifier("fixedRewardsThreadPool") ExecutorService rewardsExecutorService) {
 		this.gpsUtil = gpsUtil;
@@ -43,12 +48,18 @@ public class RewardsService {
 		this.proximityBuffer = proximityBuffer;
 	}
 
-	public List<UserReward> getUserRewards(User user) {
-		return user.getUserRewards();
+	public List<UserReward> getUserRewards(User user) throws ExecutionException, InterruptedException, NoDealOrRewardException {
+		List<UserReward> userRewards = calculateRewards(user).get();
+		if (!userRewards.isEmpty()){
+			LOGGER.info("user rewards retrieved");
+			return userRewards;
+		}
+		LOGGER.debug("No rewards found");
+		throw new NoDealOrRewardException("Rewards record empty");
 	}
 
-	public void calculateRewards(User user) {
-		rewardsExecutorService.submit(() -> {
+	public Future<List<UserReward>> calculateRewards(User user) {
+		return rewardsExecutorService.submit(() -> {
 			List<VisitedLocation> userLocations = user.getVisitedLocations();
 			List<Attraction> attractions = gpsUtil.getAttractions();
 
@@ -61,6 +72,7 @@ public class RewardsService {
 					}
 				}
 			}
+			return user.getUserRewards();
 		});
 	}
 
@@ -77,7 +89,7 @@ public class RewardsService {
 	}
 	
 	public boolean isWithinAttractionProximity(Attraction attraction, Location location) {
-		return !(getDistance(attraction, location) > attractionProximityRange);
+		return getDistance(attraction, location) > ATTRACTION_PROXIMITY_RANGE ? false : true;
 	}
 	
 	private boolean nearAttraction(VisitedLocation visitedLocation, Attraction attraction) {
